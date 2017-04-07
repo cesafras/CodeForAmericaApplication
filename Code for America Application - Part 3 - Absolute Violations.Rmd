@@ -1,0 +1,50 @@
+---
+title: "Code For America Application - Part 3"
+author: "crabess"
+date: "July 15, 2015"
+output: html_document
+---
+Loading required packages:
+
+```{r}
+library(ggplot2)
+library(scales)
+library(data.table)
+library(plyr)
+```
+
+Loading the data:
+```{r}
+Violations.2012 <- read.csv("~/Desktop/R/Violations-2012.csv", stringsAsFactors=FALSE)
+Violations.2012$violation_date <- strptime(Violations.2012$violation_date,"%Y-%m-%d %H:%M:%S") 
+Violations.2012$violation_date_closed <- strptime(Violations.2012$violation_date_closed,"%Y-%m-%d %H:%M:%S") #coercing violation dates to date formats
+Violations.2012$violation_month <- months(Violations.2012$violation_date) #creating a field that maps the month to the violation
+Violations.2012$resolution_time <- as.numeric(difftime(Violations.2012$violation_date_closed,Violations.2012$violation_date, units = "days")) #creating a field that tracks resolution time for each violation
+Violations.2012$count <- 1 #creating a numeric field to summarize the data
+```
+
+Summarize the data by month to quickly assess trends over time:
+```{r}
+DT <- data.table(Violations.2012) #use data.table package to make aggregating quicker
+byMonth <- DT[,sum(count),by=.(violation_month,violation_category,violation_type)] #now we can look at monthly, as opposed to daily, trends
+byMonth$violation_month <- factor(byMonth$violation_month, levels=unique(byMonth$violation_month)) #factorize months so that when we chart they appear in the correct order
+```
+
+Now we want to create a few plots just to understand month on month changes in reported violations. We'll be able to see what violation types are more or less common, what months have more or fewer violations, etc. (With only 30 minutes we won't worry too much about formatting, we're just trying to grab some quick insights.)
+```{r echo=FALSE}
+ggplot(byMonth, aes(x=violation_month, y = V1, fill = violation_category)) + geom_bar(stat = "identity") + facet_wrap(~violation_type) #see attached png for larger chart
+```
+
+We can see that our bigest problem areas are Animals and Pests and to a lesser degree Refuse Accumulation and general Building Conditions. Though the trends are fairly noisy, it doesn't appear that any of these violaton types are rapidly accelerating at least, although summer seasonality seems to be strong (middle sections of the charts) which seems reasonable given school breaks and warmer weather.
+
+Because we know that certain types of violations will be much more prevalent, thus visually masking some trends in less common violation types we'll scale the number of violations to understand the relative proportion by violation type over the course of the year. (With only 30 minutes we won't worry too much about formatting, we're just trying to grab some quick insights.)
+```{r echo=FALSE}
+byMonth_scaled <- ddply(byMonth, .(violation_type),transform,rescale = rescale(V1))
+ggplot(byMonth_scaled, aes(x=violation_month, y = rescale, fill = violation_category)) + geom_bar(stat = "identity") + facet_wrap(~violation_type) #see attached png for larger chart
+```
+
+The data becomes slightly more interesting now that we are controlling for the number of total violations: namely while the data is still noisy we can see clearly now that there is a pronounced spike in bed bug violations at the end of the year. Unlike some of the other violation types, bed bugs are probably cause for alarm when we see a sudden burst in activity given that we know how bed bug infestations progress. This is something I would explore.
+
+In terms of next steps I'd say, bed bugs should be a high priority - we don't want this to continue to escalate. 
+
+As well, we should also take some time to look at resolution times - might some of the peaks and troughs be related to long resolution times? Do we have adequate resources to address seasonality, especially in the summer months, when people tend to travel (and apparently abandon their cars and their gardens?)
